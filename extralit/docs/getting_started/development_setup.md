@@ -88,6 +88,70 @@ Then, select from three different development environments through devcontainers
     pdm run server-dev
     ```
 
+    #### Optional: Use Supabase for PostgreSQL + S3-compatible storage
+
+    If you are developing in GitHub Codespaces and want persistent services without running local PostgreSQL/MinIO containers, you can connect Extralit to Supabase.
+
+    1. In Supabase, open your project and copy the **Session pooler** connection string (recommended for IPv4-only environments such as GitHub Codespaces).
+    2. Update your backend environment variables before starting `server-dev`:
+
+    ```bash
+    # Use Supabase PostgreSQL (Session pooler)
+    unset EXTRALIT_DATABASE_URL
+    export EXTRALIT_DATABASE_URL="postgresql+asyncpg://<user>:<password>@<session-pooler-host>:6543/<database>?ssl=require"
+
+    # Use Supabase Storage S3 endpoint (or other S3-compatible storage)
+    export S3_ENDPOINT="https://<project-ref>.supabase.co/storage/v1/s3"
+    export S3_ACCESS_KEY="<your-s3-access-key>"
+    export S3_SECRET_KEY="<your-s3-secret-key>"
+    export S3_BUCKET="<your-bucket-name>"
+    ```
+
+    3. If installation fails on PostgreSQL-related dependencies in lightweight containers, install server dependencies without the PostgreSQL optional group and then add `asyncpg` explicitly:
+
+    ```bash
+    cd extralit-server
+    pdm install --without postgresql
+    pdm add asyncpg
+    ```
+
+    4. Start the backend and frontend in separate terminals:
+
+    ```bash
+    # Terminal 1: backend
+    cd extralit-server
+    pdm run server-dev
+    ```
+
+    ```bash
+    # Terminal 2: frontend
+    cd extralit-frontend
+    npm install
+    API_BASE_URL=https://extralit-public-demo.hf.space/ npm run dev
+    ```
+
+    5. Verify connectivity:
+       - Run a small ingestion script with the Python SDK (table creation does not happen automatically from UI-only dataset setup in this flow).
+       - Confirm rows are visible in Supabase SQL Editor.
+
+    ```bash
+    cd extralit
+    pdm install -G dev
+    pdm run python -c "import extralit; print('ok')"
+    pdm run python ../scripts/ingest_data.py
+    ```
+
+    ```sql
+    select table_name
+    from information_schema.tables
+    where table_schema = 'public'
+    order by table_name;
+
+    select count(*) from users;
+    select count(*) from datasets;
+    select count(*) from records;
+    ```
+
 === "UI/UX Design"
     This lightweight environment is focused solely on frontend development for UI changes only. It will connect directly to a public demo HF Spaces server instance and automatically load the live-reloading frontend as you make changes.
 
@@ -420,4 +484,3 @@ After setting up your development environment:
 For more information on using Extralit, see the [Quickstart Guide](quickstart.md).
 
 For support, join the [Extralit Slack channel](https://join.slack.com/t/extralit/shared_invite/zt-3gw1ah8bl-AiVNrkIVYOL4yVGOxN8WFw).
-
